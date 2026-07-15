@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<title>Household Retirement Forecast</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍁</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===================== PIN GATE ===================== -->
+<div id="pin-gate">
+  <div class="pin-box">
+    <div class="pin-leaf">🍁</div>
+    <h1>Household Retirement Forecast</h1>
+    <p class="pin-sub">Enter your 4-digit PIN to continue</p>
+    <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]*" autocomplete="off" autofocus>
+    <button id="pin-submit">Unlock</button>
+    <p id="pin-error" class="pin-error"></p>
+    <p class="pin-note">This is a private planning tool secured with a simple client-side PIN for casual privacy — it is not strong security. Do not use it to store highly sensitive identifiers (SIN, account numbers).</p>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app" class="hidden">
+  <header class="app-header">
+    <div class="brand">🍁 <span>Household Retirement Forecast</span></div>
+    <input id="scenario-name" class="scenario-name-input" value="My Retirement Plan">
+    <nav class="main-tabs">
+      <button class="main-tab active" data-tab="inputs">Inputs</button>
+      <button class="main-tab" data-tab="outputs">Outputs</button>
+    </nav>
+  </header>
+
+  <!-- ================= INPUTS TAB ================= -->
+  <section id="tab-inputs" class="main-panel">
+    <nav class="sub-tabs">
+      <button class="sub-tab active" data-sub="household">Household</button>
+      <button class="sub-tab" data-sub="kids">Kids &amp; RESP</button>
+      <button class="sub-tab" data-sub="assets">Assets &amp; Insurance</button>
+      <button class="sub-tab" data-sub="debts">Debt</button>
+      <button class="sub-tab" data-sub="expenses">Major Expenses</button>
+      <button class="sub-tab" data-sub="savings">Savings &amp; Contributions</button>
+      <button class="sub-tab" data-sub="retirement">Retirement Plan</button>
+    </nav>
+
+    <!-- ---- Household ---- -->
+    <div class="sub-panel active" data-panel="household">
+      <div class="card">
+        <h2>Household</h2>
+        <div class="grid grid-3">
+          <label>Province <select id="hh-province"></select></label>
+          <label id="hh-flatrate-wrap">Flat provincial rate <input type="number" id="hh-flatrate" step="0.001"></label>
+          <label>Plan projection to age (of Spouse 1) <input type="number" id="hh-planend"></label>
+          <label>Inflation assumption (%/yr) <input type="number" id="hh-inflation" step="0.1"></label>
+          <label class="checkbox-label"><input type="checkbox" id="hh-hasspouse2"> Include Spouse 2</label>
+        </div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card" id="spouse1-card"></div>
+        <div class="card" id="spouse2-card"></div>
+      </div>
+    </div>
+
+    <!-- ---- Kids & RESP ---- -->
+    <div class="sub-panel" data-panel="kids">
+      <div class="card">
+        <h2>Kids &amp; RESP <button class="btn-add" data-add="kid">+ Add Child</button></h2>
+        <p class="hint">CESG (20% government grant, up to $500/yr, $7,200 lifetime/child) is calculated automatically on eligible contributions.</p>
+        <div id="kids-rows"></div>
+      </div>
+    </div>
+
+    <!-- ---- Assets & Insurance ---- -->
+    <div class="sub-panel" data-panel="assets">
+      <div class="grid grid-2">
+        <div class="card" id="assets-s1-card"></div>
+        <div class="card" id="assets-s2-card"></div>
+      </div>
+      <div class="card">
+        <h2>Real Estate <button class="btn-add" data-add="realestate">+ Add Property</button></h2>
+        <div id="realestate-rows"></div>
+      </div>
+      <div class="card">
+        <h2>Other Investments <button class="btn-add" data-add="otherinv">+ Add Investment</button></h2>
+        <div id="otherinv-rows"></div>
+      </div>
+      <div class="card">
+        <h2>Life Insurance <button class="btn-add" data-add="insurance">+ Add Policy</button></h2>
+        <div id="insurance-rows"></div>
+      </div>
+    </div>
+
+    <!-- ---- Debts ---- -->
+    <div class="sub-panel" data-panel="debts">
+      <div class="card">
+        <h2>Debt &amp; Loans <button class="btn-add" data-add="debt">+ Add Debt</button></h2>
+        <p class="hint">Mortgage, lines of credit, student/car loans, etc. Payments amortize annually (approximation) at the rate and term given.</p>
+        <div id="debts-rows"></div>
+      </div>
+    </div>
+
+    <!-- ---- Major Expenses ---- -->
+    <div class="sub-panel" data-panel="expenses">
+      <div class="card">
+        <h2>Recurring Annual Expenses <button class="btn-add" data-add="recurring">+ Add Line</button></h2>
+        <p class="hint">Vacations, ongoing medical/dental, memberships, etc. Set the year range they apply.</p>
+        <div id="recurring-rows"></div>
+      </div>
+      <div class="card">
+        <h2>One-Time / Lumpy Expenses <button class="btn-add" data-add="onetime">+ Add Line</button></h2>
+        <p class="hint">Braces, renovations, weddings, a vehicle purchase, etc. — in a specific year.</p>
+        <div id="onetime-rows"></div>
+      </div>
+    </div>
+
+    <!-- ---- Savings & Contributions ---- -->
+    <div class="sub-panel" data-panel="savings">
+      <div class="card">
+        <h2>Annual Contributions (today's dollars, while working)</h2>
+        <div class="grid grid-2">
+          <div id="savings-s1"></div>
+          <div id="savings-s2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- Retirement Assumptions ---- -->
+    <div class="sub-panel" data-panel="retirement">
+      <div class="card">
+        <h2>Rates of Return (nominal, %/yr)</h2>
+        <div class="grid grid-3">
+          <label>RRSP/RRIF <input type="number" id="ret-rrsp" step="0.1"></label>
+          <label>TFSA <input type="number" id="ret-tfsa" step="0.1"></label>
+          <label>RESP <input type="number" id="ret-resp" step="0.1"></label>
+          <label>Non-registered <input type="number" id="ret-nonreg" step="0.1"></label>
+          <label>Corporate account <input type="number" id="ret-corp" step="0.1"></label>
+          <label>Real estate (real, above inflation) <input type="number" id="ret-re" step="0.1"></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Corporate Account Allocation</h2>
+        <p class="hint">How the corp account's investment return splits, for CCPC passive-income tax purposes.</p>
+        <div class="grid grid-3">
+          <label>% Capital gains <input type="number" id="ret-corpcg" step="1"></label>
+          <label>% Eligible dividends <input type="number" id="ret-corped" step="1"></label>
+          <label>% Interest / other (remainder) <input type="number" id="ret-corpint" step="1" disabled></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Retirement Cash Flow &amp; Withdrawal Order</h2>
+        <div class="grid grid-2">
+          <label>Target annual spending in retirement, today's $ <input type="number" id="ret-cashneed" step="1000"></label>
+          <label>Withdrawal order <input type="text" value="RRSP/RRIF → Corp dividends → Non-Registered → TFSA (fixed)" disabled></label>
+        </div>
+      </div>
+      <div class="card methodology">
+        <h2>Methodology &amp; Assumptions</h2>
+        <ul>
+          <li>Engine runs internally in nominal dollars (so indexed tax brackets, CPP/OAS, and fixed mortgage payments behave realistically), then every figure shown is deflated to today's purchasing power.</li>
+          <li>Federal + provincial tax brackets are approximate 2025 figures, indexed forward by your inflation assumption. High-income federal BPA claw-back is not modelled.</li>
+          <li>Corporate account: annual mark-to-market gain realization, blended provincial passive-income tax rate, RDTOH refund and Capital Dividend Account (CDA) tracked; payouts modelled as non-eligible dividends.</li>
+          <li>RESP withdrawals assumed tax-free to the household (education assistance payments taxed in the student's hands).</li>
+          <li>Not tax or financial advice — a planning approximation. Confirm key numbers with an accountant/advisor before acting.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= OUTPUTS TAB ================= -->
+  <section id="tab-outputs" class="main-panel hidden">
+    <nav class="sub-tabs">
+      <button class="sub-tab active" data-sub="dashboard">Dashboard</button>
+      <button class="sub-tab" data-sub="table">Detailed Table</button>
+      <button class="sub-tab" data-sub="export">Export &amp; Save</button>
+    </nav>
+
+    <div class="sub-panel active" data-panel="dashboard">
+      <div class="card sliders-card">
+        <h2>What-If Sliders</h2>
+        <div class="grid grid-3" id="output-sliders"></div>
+      </div>
+      <div class="grid grid-4" id="summary-tiles"></div>
+      <div class="grid grid-2">
+        <div class="card chart-card"><h3>Net Worth Over Time</h3><div class="chart-wrap"><canvas id="chart-networth"></canvas></div></div>
+        <div class="card chart-card"><h3>Retirement Income by Source</h3><div class="chart-wrap"><canvas id="chart-income"></canvas></div></div>
+        <div class="card chart-card"><h3>Cash Flow: Surplus / Deficit</h3><div class="chart-wrap"><canvas id="chart-cashflow"></canvas></div></div>
+        <div class="card chart-card"><h3>Account Runway / Depletion</h3><div class="chart-wrap"><canvas id="chart-runway"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="sub-panel" data-panel="table">
+      <div class="card">
+        <h2>Year-by-Year Projection (today's dollars)</h2>
+        <div class="table-scroll"><table id="detail-table"></table></div>
+      </div>
+    </div>
+
+    <div class="sub-panel" data-panel="export">
+      <div class="card">
+        <h2>Export &amp; Save</h2>
+        <div class="export-buttons">
+          <button id="btn-export-excel">📊 Export to Excel (.xlsx)</button>
+          <button id="btn-print">🖨️ Print / Save as PDF</button>
+          <button id="btn-save-json">💾 Save Scenario (.json)</button>
+          <label class="btn-load-label">📂 Load Scenario
+            <input type="file" id="btn-load-json" accept=".json" hidden>
+          </label>
+        </div>
+        <p class="hint">This app has no server/database — "Save" downloads a JSON file with every input so you (or your advisor) can reload it here anytime.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/tax.js"></script>
+<script src="js/state.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui-inputs.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ui-outputs.js"></script>
+<script src="js/export.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
