@@ -75,6 +75,20 @@ function runProjection(state) {
     const s1Age = s1.currentAge + y;
     const s2Age = hasS2 ? s2.currentAge + y : null;
 
+    // Canada taxes individuals, not households — compute each spouse's tax on
+    // THEIR OWN income and sum, never combine two incomes into one taxpayer.
+    function personTaxAndClaw(incomeObj, spouseOAS) {
+      const netIncomeForClawback = incomeObj.employment + incomeObj.pension + incomeObj.cppOas + incomeObj.rrifRrsp +
+        incomeObj.nonRegCapGain * CAP_GAINS_INCLUSION + incomeObj.nonEligibleDiv * (1 + NON_ELIGIBLE_DIV_GROSSUP) +
+        incomeObj.eligibleDiv * (1 + ELIGIBLE_DIV_GROSSUP);
+      const claw = oasClawback(netIncomeForClawback, spouseOAS, oasThreshold);
+      const tax = computePersonalTax(incomeObj, fedBrackets, fedBPA, prov);
+      return { fedTax: tax.fedTax, provTax: tax.provTax, totalTax: tax.totalTax + claw, claw };
+    }
+    function sumTax(a, b) {
+      return { fedTax: a.fedTax + b.fedTax, provTax: a.provTax + b.provTax, totalTax: a.totalTax + b.totalTax };
+    }
+
     function spouseIncome(sp, age, key) {
       const retired = age >= sp.retirementAge;
       const grossEmployment = retired ? 0 : sp.employmentIncomeToday * infFactor * Math.pow(1 + sp.incomeGrowthRealPct, y);
@@ -210,18 +224,16 @@ function runProjection(state) {
         bal.s2.tfsa *= (1 + A.tfsaReturnPct);
         const g2 = bal.s2.nonReg * A.nonRegReturnPct; bal.s2.nonReg += g2;
       }
-      // Tax on employment/pension/cpp/oas/mandatory RRIF only
-      const income = {
-        employment: inc1.employment + inc2.employment,
-        pension: inc1.pension + inc2.pension,
-        cppOas: inc1.cpp + inc1.oas + inc2.cpp + inc2.oas,
-        rrifRrsp: mand1 + mand2,
-        nonRegInterest: 0, nonRegCapGain: 0, eligibleDiv: 0, nonEligibleDiv: 0
-      };
-      const totalIncomeForClawback = income.employment + income.pension + income.cppOas + income.rrifRrsp;
-      oasClaw = oasClawback(totalIncomeForClawback, inc1.oas + inc2.oas, oasThreshold);
-      householdTax = computePersonalTax(income, fedBrackets, fedBPA, prov);
-      householdTax.totalTax += oasClaw;
+      // Tax on employment/pension/cpp/oas/mandatory RRIF — each spouse taxed individually
+      const inc1Obj = { employment: inc1.employment, pension: inc1.pension, cppOas: inc1.cpp + inc1.oas, rrifRrsp: mand1, nonRegInterest: 0, nonRegCapGain: 0, eligibleDiv: 0, nonEligibleDiv: 0 };
+      const r1 = personTaxAndClaw(inc1Obj, inc1.oas);
+      let r2 = { fedTax: 0, provTax: 0, totalTax: 0, claw: 0 };
+      if (hasS2) {
+        const inc2Obj = { employment: inc2.employment, pension: inc2.pension, cppOas: inc2.cpp + inc2.oas, rrifRrsp: mand2, nonRegInterest: 0, nonRegCapGain: 0, eligibleDiv: 0, nonEligibleDiv: 0 };
+        r2 = personTaxAndClaw(inc2Obj, inc2.oas);
+      }
+      householdTax = sumTax(r1, r2);
+      oasClaw = r1.claw + r2.claw;
     } else {
       // ---- Retirement phase: iterative withdrawal solve ----
       const cashNeedToday = A.retirementCashflowNeedToday;
@@ -229,22 +241,26 @@ function runProjection(state) {
       const guaranteedOutflow = debtPaymentTotal + recurringTotal + oneTimeTotal + insurancePremiumTotal + educationNetCost;
       const outflowTarget = cashNeedNominal + guaranteedOutflow;
 
-      const guaranteedTaxableBase = {
-        employment: inc1.employment + inc2.employment,
-        pension: inc1.pension + inc2.pension,
-        cppOas: inc1.cpp + inc1.oas + inc2.cpp + inc2.oas,
-        rrifRrsp: mand1 + mand2
-      };
-      const guaranteedCashGross = guaranteedTaxableBase.employment + guaranteedTaxableBase.pension + guaranteedTaxableBase.cppOas + guaranteedTaxableBase.rrifRrsp;
+      // Guaranteed (non-discretionary) income per spouse: pension + CPP + OAS + their own mandatory RRIF minimum.
+      // (Employment is 0 for both here — retirementPhase requires every spouse to be retired.)
+      const guaranteedCashGross = inc1.pension + inc1.cpp + inc1.oas + mand1 + inc2.pension + inc2.cpp + inc2.oas + mand2;
 
       const availRRIF = bal.s1.rrsp + (hasS2 ? bal.s2.rrsp : 0);
       const availCorp = bal.s1.corp + (hasS2 ? bal.s2.corp : 0);
       const availNonReg = bal.s1.nonReg + (hasS2 ? bal.s2.nonReg : 0);
       const availTFSA = bal.s1.tfsa + (hasS2 ? bal.s2.tfsa : 0);
 
+      // Fixed per-spouse shares of each bucket (by their own balance at the start of this
+      // year's withdrawal decision) — used both to attribute tax correctly per spouse and,
+      // later, to actually draw down each spouse's own accounts (drawProportional below).
+      const s1RRIFShare = availRRIF > 0 ? bal.s1.rrsp / availRRIF : (hasS2 ? 0.5 : 1);
+      const s1CorpShare = availCorp > 0 ? bal.s1.corp / availCorp : (hasS2 ? 0.5 : 1);
+      const s1NonRegShare = availNonReg > 0 ? bal.s1.nonReg / availNonReg : (hasS2 ? 0.5 : 1);
+      const s1NonRegACBRatio = bal.s1.nonReg > 0 ? Math.min(1, bal.s1.nonRegACB / bal.s1.nonReg) : 0;
+      const s2NonRegACBRatio = (hasS2 && bal.s2.nonReg > 0) ? Math.min(1, bal.s2.nonRegACB / bal.s2.nonReg) : 0;
+
       let guess = Math.max(0, outflowTarget - guaranteedCashGross) / 0.65;
       let alloc = { rrifExtra: 0, corpDiv: 0, nonReg: 0, tfsa: 0 };
-      let lastNet = 0;
 
       for (let iter = 0; iter < 10; iter++) {
         let remaining = guess;
@@ -254,34 +270,29 @@ function runProjection(state) {
         alloc.tfsa = Math.min(remaining, availTFSA); remaining -= alloc.tfsa;
         const unmet = Math.max(0, remaining); // household literally runs out of money
 
-        // Non-reg realized taxable gain portion (household-blended ACB ratio)
-        const totalNonRegBal = Math.max(1, (bal.s1.nonReg + (hasS2 ? bal.s2.nonReg : 0)));
-        const totalNonRegACB = bal.s1.nonRegACB + (hasS2 ? bal.s2.nonRegACB : 0);
-        const acbRatio = Math.min(1, totalNonRegACB / totalNonRegBal);
-        const nonRegGain = alloc.nonReg * (1 - acbRatio);
+        const s1RRIF = alloc.rrifExtra * s1RRIFShare, s2RRIF = alloc.rrifExtra * (1 - s1RRIFShare);
+        const s1Corp = alloc.corpDiv * s1CorpShare, s2Corp = alloc.corpDiv * (1 - s1CorpShare);
+        const s1NonRegW = alloc.nonReg * s1NonRegShare, s2NonRegW = alloc.nonReg * (1 - s1NonRegShare);
+        const s1NonRegGain = s1NonRegW * (1 - s1NonRegACBRatio);
+        const s2NonRegGain = s2NonRegW * (1 - s2NonRegACBRatio);
 
-        // Corp dividend: non-eligible dividend, RDTOH refund flows back into corp (not this year's household cash)
-        const income = {
-          employment: 0, pension: 0,
-          cppOas: guaranteedTaxableBase.cppOas,
-          rrifRrsp: guaranteedTaxableBase.rrifRrsp + alloc.rrifExtra,
-          nonRegInterest: 0,
-          nonRegCapGain: nonRegGain,
-          eligibleDiv: 0,
-          nonEligibleDiv: alloc.corpDiv
-        };
-        const totalIncomeForClawback = guaranteedTaxableBase.employment + guaranteedTaxableBase.pension + guaranteedTaxableBase.cppOas + income.rrifRrsp + nonRegGain * CAP_GAINS_INCLUSION + alloc.corpDiv * (1 + NON_ELIGIBLE_DIV_GROSSUP);
-        const claw = oasClawback(totalIncomeForClawback, inc1.oas + inc2.oas, oasThreshold);
-        const tax = computePersonalTax(income, fedBrackets, fedBPA, prov);
-        const totalTax = tax.totalTax + claw;
+        // Each spouse taxed individually on their own pension/CPP/OAS/RRIF/dividend/gain share.
+        const inc1Obj = { employment: 0, pension: inc1.pension, cppOas: inc1.cpp + inc1.oas, rrifRrsp: mand1 + s1RRIF, nonRegInterest: 0, nonRegCapGain: s1NonRegGain, eligibleDiv: 0, nonEligibleDiv: s1Corp };
+        const r1 = personTaxAndClaw(inc1Obj, inc1.oas);
+        let r2 = { fedTax: 0, provTax: 0, totalTax: 0, claw: 0 };
+        if (hasS2) {
+          const inc2Obj = { employment: 0, pension: inc2.pension, cppOas: inc2.cpp + inc2.oas, rrifRrsp: mand2 + s2RRIF, nonRegInterest: 0, nonRegCapGain: s2NonRegGain, eligibleDiv: 0, nonEligibleDiv: s2Corp };
+          r2 = personTaxAndClaw(inc2Obj, inc2.oas);
+        }
+        const totalTax = r1.totalTax + r2.totalTax;
 
         const netCash = guaranteedCashGross + alloc.rrifExtra + alloc.corpDiv + alloc.nonReg + alloc.tfsa - totalTax - unmet;
-        lastNet = netCash;
         const shortfall = outflowTarget - netCash;
-        if (Math.abs(shortfall) < 25) { householdTax = tax; householdTax.totalTax = totalTax; oasClaw = claw; break; }
+        householdTax = sumTax(r1, r2); householdTax.totalTax = totalTax;
+        oasClaw = r1.claw + r2.claw;
+        if (Math.abs(shortfall) < 25) break;
         guess += shortfall / 0.6;
         guess = Math.max(0, guess);
-        householdTax = tax; householdTax.totalTax = totalTax; oasClaw = claw;
       }
 
       withdrawals = { rrifExtra: alloc.rrifExtra, corpDiv: alloc.corpDiv, nonReg: alloc.nonReg, tfsa: alloc.tfsa, mandatoryRRIF: mand1 + mand2 };
@@ -303,8 +314,8 @@ function runProjection(state) {
           spBal.rdtohNE -= refundAmt;
           spBal.corp += refundAmt;
         }
-        refund(bal.s1, hasS2 ? 0.5 : 1);
-        if (hasS2) refund(bal.s2, 0.5);
+        refund(bal.s1, s1CorpShare);
+        if (hasS2) refund(bal.s2, 1 - s1CorpShare);
       }
       // Non-reg withdrawal reduces balance and proportional ACB
       function drawNonReg(spBal, amount) {
