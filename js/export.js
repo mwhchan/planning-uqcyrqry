@@ -77,6 +77,7 @@ function loadScenarioJSON(file) {
       renderInputsAll();
       renderOutputSliders();
       recomputeAndRender();
+      saveStateToStorage();
     } catch (err) {
       alert("Could not read that scenario file. Make sure it's a JSON file exported from this app.");
     }

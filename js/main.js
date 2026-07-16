@@ -43,11 +43,38 @@ function initPinGate() {
   document.getElementById("pin-input").addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 }
 
+// Silent local persistence — a safety net so backgrounding/switching away
+// from the tab on a phone (which can make mobile browsers reclaim memory
+// and reload the page from scratch) doesn't lose unsaved work. This is
+// separate from the explicit Save/Load JSON flow, which stays the
+// deliberate way to back up or move a scenario between devices.
+const STATE_STORAGE_KEY = "rf_state_v1";
+function saveStateToStorage() {
+  try { localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(STATE)); } catch (e) { /* storage unavailable/full — non-critical */ }
+}
+function loadStateFromStorage() {
+  try {
+    const raw = localStorage.getItem(STATE_STORAGE_KEY);
+    if (!raw) return false;
+    const loaded = JSON.parse(raw);
+    const merged = defaultState();
+    Object.keys(loaded).forEach(k => merged[k] = loaded[k]);
+    STATE = merged;
+    return true;
+  } catch (e) { return false; }
+}
+
 let recalcTimer = null;
 function scheduleRecalc() {
   clearTimeout(recalcTimer);
-  recalcTimer = setTimeout(recomputeAndRender, 180);
+  recalcTimer = setTimeout(() => { recomputeAndRender(); saveStateToStorage(); }, 180);
 }
+
+// Also save on visibility change / pagehide — belt-and-suspenders for the
+// exact "backgrounded on a phone" moment we're protecting against, since
+// the debounce timer above may not have fired yet when that happens.
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveStateToStorage(); });
+window.addEventListener("pagehide", saveStateToStorage);
 
 function wireTabs() {
   document.querySelectorAll(".main-tab").forEach(btn => {
@@ -73,7 +100,7 @@ function wireTabs() {
 function wireHeader() {
   const nameInput = document.getElementById("scenario-name");
   nameInput.value = STATE.meta.scenarioName;
-  nameInput.addEventListener("input", () => { STATE.meta.scenarioName = nameInput.value; });
+  nameInput.addEventListener("input", () => { STATE.meta.scenarioName = nameInput.value; scheduleRecalc(); });
 }
 
 function wireExport() {
@@ -87,6 +114,7 @@ function wireExport() {
 }
 
 function initApp() {
+  loadStateFromStorage();
   wireTabs();
   wireHeader();
   wireExport();
