@@ -128,7 +128,7 @@ function baseOptions(P, wrapEl, tooltipOpts) {
     scales: commonScales(P),
     plugins: {
       legend: legendOpts(P),
-      tooltip: { enabled: false, external: makeExternalTooltip(wrapEl, tooltipOpts) }
+      tooltip: { enabled: false, position: "nearest", external: makeExternalTooltip(wrapEl, tooltipOpts) }
     }
   };
 }

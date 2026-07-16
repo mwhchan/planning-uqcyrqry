@@ -242,7 +242,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 6px va
 
 /* ---------------- Custom chart tooltip ---------------- */
 .chart-tooltip {
-  position: absolute; pointer-events: none; z-index: 20; opacity: 0; transition: opacity .1s var(--ease);
+  position: absolute; top: 0; left: 0; pointer-events: none; z-index: 20; opacity: 0; transition: opacity .1s var(--ease);
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: var(--shadow-md); padding: 10px 12px; font-size: 12px; min-width: 150px;
   transform: translate(-9999px, -9999px);
