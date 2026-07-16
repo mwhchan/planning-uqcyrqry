@@ -40,6 +40,7 @@
       <button class="sub-tab active" data-sub="household">Household</button>
       <button class="sub-tab" data-sub="kids">Kids &amp; RESP</button>
       <button class="sub-tab" data-sub="assets">Assets &amp; Insurance</button>
+      <button class="sub-tab" data-sub="corporation">Corporation</button>
       <button class="sub-tab" data-sub="debts">Debt</button>
       <button class="sub-tab" data-sub="expenses">Major Expenses</button>
       <button class="sub-tab" data-sub="savings">Savings &amp; Contributions</button>
@@ -61,6 +62,25 @@
       <div class="grid grid-2">
         <div class="card" id="spouse1-card"></div>
         <div class="card" id="spouse2-card"></div>
+      </div>
+    </div>
+
+    <!-- ---- Corporation ---- -->
+    <div class="sub-panel" data-panel="corporation">
+      <div id="corp-empty-hint" class="card hint">No spouse has a corporate investment account enabled. Turn on "Has corporate investment account (CCPC)" for a spouse on the Household tab to plan it here.</div>
+      <div id="corp-assumptions-card" class="card">
+        <h2>Corporate Account Return &amp; Allocation</h2>
+        <p class="hint">Applies to all corporate accounts in the household. Allocation splits the account's investment return for CCPC passive-income tax purposes (interest/foreign income vs. eligible dividends vs. capital gains).</p>
+        <div class="grid grid-4">
+          <label>Return (nominal, %/yr) <input type="number" id="ret-corp" step="0.1"></label>
+          <label>% Capital gains <input type="number" id="ret-corpcg" step="1"></label>
+          <label>% Eligible dividends <input type="number" id="ret-corped" step="1"></label>
+          <label>% Interest / other (remainder) <input type="number" id="ret-corpint" step="1" disabled></label>
+        </div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card" id="corp-s1-card"></div>
+        <div class="card" id="corp-s2-card"></div>
       </div>
     </div>
 
@@ -136,24 +156,20 @@
           <label>TFSA <input type="number" id="ret-tfsa" step="0.1"></label>
           <label>RESP <input type="number" id="ret-resp" step="0.1"></label>
           <label>Non-registered <input type="number" id="ret-nonreg" step="0.1"></label>
-          <label>Corporate account <input type="number" id="ret-corp" step="0.1"></label>
           <label>Real estate (real, above inflation) <input type="number" id="ret-re" step="0.1"></label>
         </div>
+        <p class="hint" style="margin-top:14px;margin-bottom:0;">Corporate account return &amp; allocation assumptions live on the Corporation tab.</p>
+      </div>
+      <div class="card" id="pension-payout-card">
+        <h2>Pension Payout &amp; Withdrawal Waterfall</h2>
+        <p class="hint">Pension income (plus CPP and OAS) is the <strong>base layer</strong> of retirement cash flow — it's paid first and reduces how much needs to be pulled from investments. Whatever's left of your target spending is drawn in order: RRSP/RRIF → Corp dividends → Non-Registered → TFSA.</p>
+        <div id="pension-payout-summary" class="grid grid-2"></div>
       </div>
       <div class="card">
-        <h2>Corporate Account Allocation</h2>
-        <p class="hint">How the corp account's investment return splits, for CCPC passive-income tax purposes.</p>
-        <div class="grid grid-3">
-          <label>% Capital gains <input type="number" id="ret-corpcg" step="1"></label>
-          <label>% Eligible dividends <input type="number" id="ret-corped" step="1"></label>
-          <label>% Interest / other (remainder) <input type="number" id="ret-corpint" step="1" disabled></label>
-        </div>
-      </div>
-      <div class="card">
-        <h2>Retirement Cash Flow &amp; Withdrawal Order</h2>
+        <h2>Retirement Cash Flow</h2>
         <div class="grid grid-2">
           <label>Target annual spending in retirement, today's $ <input type="number" id="ret-cashneed" step="1000"></label>
-          <label>Withdrawal order <input type="text" value="RRSP/RRIF → Corp dividends → Non-Registered → TFSA (fixed)" disabled></label>
+          <label>Withdrawal order <input type="text" value="Pension + CPP + OAS → RRSP/RRIF → Corp dividends → Non-Registered → TFSA (fixed)" disabled></label>
         </div>
       </div>
       <div class="card methodology">

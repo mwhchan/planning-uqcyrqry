@@ -40,16 +40,18 @@ function renderInputsAll() {
   renderSpouseCard("spouse1", "spouse1-card", "Spouse 1", false);
   renderSpouseCard("spouse2", "spouse2-card", "Spouse 2", true);
   renderKids();
-  renderAssetsCard("spouse1", "assets-s1-card", "Spouse 1 — Registered & Corp Accounts", false);
-  renderAssetsCard("spouse2", "assets-s2-card", "Spouse 2 — Registered & Corp Accounts", true);
+  renderAssetsCard("spouse1", "assets-s1-card", "Spouse 1 — Registered Accounts", false);
+  renderAssetsCard("spouse2", "assets-s2-card", "Spouse 2 — Registered Accounts", true);
   renderRealEstate();
   renderOtherInvestments();
   renderInsurance();
+  renderCorpTab();
   renderDebts();
   renderRecurringExpenses();
   renderOneTimeExpenses();
   renderSavings();
   renderRetirementAssumptions();
+  renderPensionPayoutSummary();
 }
 
 function renderHousehold() {
@@ -76,8 +78,10 @@ function renderSpouseCard(key, containerId, defaultLabel, isSpouse2) {
       <label>Employment income (today's $) <input type="number" id="${key}-income"></label>
       <label>Real income growth (%/yr above inflation) <input type="number" id="${key}-incgrowth" step="0.1"></label>
       <label class="checkbox-label"><input type="checkbox" id="${key}-haspension"> Has defined-benefit pension</label>
-      <label>Pension amount (today's $/yr) <input type="number" id="${key}-pension"></label>
+      <label>Pension contribution while working (today's $/yr, pre-tax) <input type="number" id="${key}-pensioncontrib"></label>
+      <label>Pension payout (today's $/yr) <input type="number" id="${key}-pension"></label>
       <label>Pension start age <input type="number" id="${key}-pensionage"></label>
+      <label>Pension indexing (% of inflation kept, once paying out) <input type="number" id="${key}-pensionidx" step="1"></label>
       <label>CPP estimate at 65 (today's $/yr) <input type="number" id="${key}-cpp"></label>
       <label>CPP start age <input type="number" id="${key}-cppage" min="60" max="70"></label>
       <label>OAS estimate at 65 (today's $/yr) <input type="number" id="${key}-oas"></label>
@@ -91,13 +95,15 @@ function renderSpouseCard(key, containerId, defaultLabel, isSpouse2) {
   bindNumber(document.getElementById(`${key}-income`), () => sp.employmentIncomeToday, v => sp.employmentIncomeToday = v);
   bindNumber(document.getElementById(`${key}-incgrowth`), () => sp.incomeGrowthRealPct, v => sp.incomeGrowthRealPct = v, { pct: true, digits: 1 });
   bindCheckbox(document.getElementById(`${key}-haspension`), () => sp.hasDefinedBenefitPension, v => sp.hasDefinedBenefitPension = v);
+  bindNumber(document.getElementById(`${key}-pensioncontrib`), () => sp.pensionContributionToday, v => sp.pensionContributionToday = v);
   bindNumber(document.getElementById(`${key}-pension`), () => sp.pensionAnnualToday, v => sp.pensionAnnualToday = v);
   bindNumber(document.getElementById(`${key}-pensionage`), () => sp.pensionStartAge, v => sp.pensionStartAge = v);
+  bindNumber(document.getElementById(`${key}-pensionidx`), () => sp.pensionIndexedPct, v => sp.pensionIndexedPct = v, { pct: true, digits: 0 });
   bindNumber(document.getElementById(`${key}-cpp`), () => sp.cppEstimateAt65Today, v => sp.cppEstimateAt65Today = v);
   bindNumber(document.getElementById(`${key}-cppage`), () => sp.cppStartAge, v => sp.cppStartAge = v);
   bindNumber(document.getElementById(`${key}-oas`), () => sp.oasEstimateAt65Today, v => sp.oasEstimateAt65Today = v);
   bindNumber(document.getElementById(`${key}-oasage`), () => sp.oasStartAge, v => sp.oasStartAge = v);
-  bindCheckbox(document.getElementById(`${key}-hascorp`), () => sp.hasCorpAccount, v => sp.hasCorpAccount = v, () => { renderAssetsCard(key, key === "spouse1" ? "assets-s1-card" : "assets-s2-card", "", isSpouse2); renderSavings(); });
+  bindCheckbox(document.getElementById(`${key}-hascorp`), () => sp.hasCorpAccount, v => sp.hasCorpAccount = v, () => { renderCorpTab(); renderSavings(); });
 }
 
 function renderKids() {
@@ -137,30 +143,47 @@ function renderAssetsCard(key, containerId, title, isSpouse2) {
   if (isSpouse2 && !STATE.householdHasSpouse2) { container.innerHTML = ""; return; }
   const sp = STATE[key];
   container.innerHTML = `
-    <h2>${title || (sp.name + " — Registered &amp; Corp Accounts")}</h2>
+    <h2>${title || (sp.name + " — Registered Accounts")}</h2>
     <div class="grid grid-2">
       <label>RRSP balance ($) <input type="number" id="${key}-rrsp"></label>
       <label>TFSA balance ($) <input type="number" id="${key}-tfsa"></label>
       <label>Non-registered balance ($) <input type="number" id="${key}-nonreg"></label>
       <label>Non-reg cost base (% of balance) <input type="number" id="${key}-acb" step="1"></label>
-      ${sp.hasCorpAccount ? `
-      <label>Corporate account balance ($) <input type="number" id="${key}-corp"></label>
-      <label>Corp RDTOH — non-eligible ($) <input type="number" id="${key}-rdtohne"></label>
-      <label>Corp RDTOH — eligible ($) <input type="number" id="${key}-rdtohe"></label>
-      <label>Corp Capital Dividend Account ($) <input type="number" id="${key}-cda"></label>
-      ` : ""}
     </div>
   `;
   bindNumber(document.getElementById(`${key}-rrsp`), () => sp.rrspBalance, v => sp.rrspBalance = v);
   bindNumber(document.getElementById(`${key}-tfsa`), () => sp.tfsaBalance, v => sp.tfsaBalance = v);
   bindNumber(document.getElementById(`${key}-nonreg`), () => sp.nonRegBalance, v => sp.nonRegBalance = v);
   bindNumber(document.getElementById(`${key}-acb`), () => sp.nonRegACBFraction, v => sp.nonRegACBFraction = v, { pct: true, digits: 0 });
-  if (sp.hasCorpAccount) {
+}
+
+function renderCorpTab() {
+  const anyCorp = STATE.spouse1.hasCorpAccount || (STATE.householdHasSpouse2 && STATE.spouse2.hasCorpAccount);
+  document.getElementById("corp-empty-hint").style.display = anyCorp ? "none" : "block";
+  document.getElementById("corp-assumptions-card").style.display = anyCorp ? "block" : "none";
+
+  [["spouse1", "corp-s1-card", false], ["spouse2", "corp-s2-card", true]].forEach(([key, containerId, isSpouse2]) => {
+    const container = document.getElementById(containerId);
+    if (isSpouse2 && !STATE.householdHasSpouse2) { container.innerHTML = ""; container.style.display = "none"; return; }
+    const sp = STATE[key];
+    if (!sp.hasCorpAccount) { container.innerHTML = ""; container.style.display = "none"; return; }
+    container.style.display = "block";
+    container.innerHTML = `
+      <h2>${sp.name} — Corporate Account</h2>
+      <div class="grid grid-2">
+        <label>Corporate account balance ($) <input type="number" id="${key}-corp"></label>
+        <label>Annual contribution ($/yr, while working) <input type="number" id="${key}-corpcontrib"></label>
+        <label>RDTOH — non-eligible ($) <input type="number" id="${key}-rdtohne"></label>
+        <label>RDTOH — eligible ($) <input type="number" id="${key}-rdtohe"></label>
+        <label>Capital Dividend Account ($) <input type="number" id="${key}-cda"></label>
+      </div>
+    `;
     bindNumber(document.getElementById(`${key}-corp`), () => sp.corpBalance, v => sp.corpBalance = v);
+    bindNumber(document.getElementById(`${key}-corpcontrib`), () => sp.corpContributionToday, v => sp.corpContributionToday = v);
     bindNumber(document.getElementById(`${key}-rdtohne`), () => sp.corpRdtohNonElig, v => sp.corpRdtohNonElig = v);
     bindNumber(document.getElementById(`${key}-rdtohe`), () => sp.corpRdtohElig, v => sp.corpRdtohElig = v);
     bindNumber(document.getElementById(`${key}-cda`), () => sp.corpCDA, v => sp.corpCDA = v);
-  }
+  });
 }
 
 function renderRealEstate() {
@@ -337,11 +360,11 @@ function renderSavings() {
       <div class="grid grid-1" style="grid-template-columns:1fr;">
         <label>RRSP contribution ($/yr) <input type="number" id="${key}-sav-rrsp"></label>
         <label>TFSA contribution ($/yr) <input type="number" id="${key}-sav-tfsa"></label>
-        ${sp.hasCorpAccount ? `<label>Corp account contribution ($/yr) <input type="number" id="${key}-sav-corp"></label>` : ""}
-      </div>`;
+      </div>
+      ${sp.hasCorpAccount ? `<p class="hint" style="margin-top:10px;margin-bottom:0;">Corp account contributions are set on the Corporation tab.</p>` : ""}
+      ${sp.hasDefinedBenefitPension ? `<p class="hint" style="margin-top:10px;margin-bottom:0;">Pension contributions are set on the Household tab.</p>` : ""}`;
     bindNumber(document.getElementById(`${key}-sav-rrsp`), () => sp.rrspContributionToday, v => sp.rrspContributionToday = v);
     bindNumber(document.getElementById(`${key}-sav-tfsa`), () => sp.tfsaContributionToday, v => sp.tfsaContributionToday = v);
-    if (sp.hasCorpAccount) bindNumber(document.getElementById(`${key}-sav-corp`), () => sp.corpContributionToday, v => sp.corpContributionToday = v);
   });
 }
 
@@ -351,14 +374,35 @@ function renderRetirementAssumptions() {
   bindNumber(document.getElementById("ret-tfsa"), () => A.tfsaReturnPct, v => A.tfsaReturnPct = v, { pct: true, digits: 1 });
   bindNumber(document.getElementById("ret-resp"), () => A.respReturnPct, v => A.respReturnPct = v, { pct: true, digits: 1 });
   bindNumber(document.getElementById("ret-nonreg"), () => A.nonRegReturnPct, v => A.nonRegReturnPct = v, { pct: true, digits: 1 });
-  bindNumber(document.getElementById("ret-corp"), () => A.corpReturnPct, v => A.corpReturnPct = v, { pct: true, digits: 1 });
   bindNumber(document.getElementById("ret-re"), () => A.realEstateGrowthRealPct, v => A.realEstateGrowthRealPct = v, { pct: true, digits: 1 });
 
   const cg = document.getElementById("ret-corpcg"), ed = document.getElementById("ret-corped"), it = document.getElementById("ret-corpint");
   function refreshInterestPct() { it.value = (100 - (A.corpCapGainAllocPct * 100) - (A.corpEligDivAllocPct * 100)).toFixed(0); }
+  bindNumber(document.getElementById("ret-corp"), () => A.corpReturnPct, v => A.corpReturnPct = v, { pct: true, digits: 1 });
   bindNumber(cg, () => A.corpCapGainAllocPct, v => { A.corpCapGainAllocPct = v; refreshInterestPct(); }, { pct: true, digits: 0 });
   bindNumber(ed, () => A.corpEligDivAllocPct, v => { A.corpEligDivAllocPct = v; refreshInterestPct(); }, { pct: true, digits: 0 });
   refreshInterestPct();
 
   bindNumber(document.getElementById("ret-cashneed"), () => A.retirementCashflowNeedToday, v => A.retirementCashflowNeedToday = v);
+}
+
+function renderPensionPayoutSummary() {
+  const container = document.getElementById("pension-payout-summary");
+  if (!container) return;
+  const spouses = [STATE.spouse1];
+  if (STATE.householdHasSpouse2) spouses.push(STATE.spouse2);
+  const withPension = spouses.filter(sp => sp.hasDefinedBenefitPension);
+  if (!withPension.length) {
+    container.innerHTML = `<p class="hint" style="margin:0;">No pension entered yet — retirement cash flow will rely on CPP/OAS plus investment withdrawals as the base layer. Add a pension on the Household tab if either spouse has one.</p>`;
+    return;
+  }
+  container.innerHTML = withPension.map(sp => `
+    <div>
+      <div style="font-weight:650;font-size:13px;margin-bottom:4px;">${sp.name}</div>
+      <div class="hint" style="margin:0;">
+        ${fmt$(sp.pensionAnnualToday)}/yr starting at age ${sp.pensionStartAge}, indexed to ${Math.round(sp.pensionIndexedPct * 100)}% of inflation
+        ${sp.pensionContributionToday ? ` — contributing ${fmt$(sp.pensionContributionToday)}/yr while working` : ""}.
+      </div>
+    </div>
+  `).join("");
 }

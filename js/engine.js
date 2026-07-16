@@ -77,11 +77,18 @@ function runProjection(state) {
 
     function spouseIncome(sp, age, key) {
       const retired = age >= sp.retirementAge;
-      const employment = retired ? 0 : sp.employmentIncomeToday * infFactor * Math.pow(1 + sp.incomeGrowthRealPct, y);
-      const pension = (sp.hasDefinedBenefitPension && age >= sp.pensionStartAge) ? sp.pensionAnnualToday * infFactor : 0;
+      const grossEmployment = retired ? 0 : sp.employmentIncomeToday * infFactor * Math.pow(1 + sp.incomeGrowthRealPct, y);
+      const pensionContribution = (!retired && sp.hasDefinedBenefitPension) ? Math.min(grossEmployment, sp.pensionContributionToday * infFactor) : 0;
+      const employment = grossEmployment - pensionContribution;
+      let pension = 0;
+      if (sp.hasDefinedBenefitPension && age >= sp.pensionStartAge) {
+        const yearsSincePensionStart = age - sp.pensionStartAge;
+        const nominalAtStart = sp.pensionAnnualToday * Math.pow(1 + inflation, y - yearsSincePensionStart);
+        pension = nominalAtStart * Math.pow(1 + inflation * sp.pensionIndexedPct, yearsSincePensionStart);
+      }
       const cpp = age >= sp.cppStartAge ? sp.cppEstimateAt65Today * infFactor * cppAdjustmentFactor(sp.cppStartAge) : 0;
       let oas = age >= sp.oasStartAge ? sp.oasEstimateAt65Today * infFactor * oasAdjustmentFactor(sp.oasStartAge) * (age >= 75 ? 1 + OAS_75_BONUS : 1) : 0;
-      return { retired, employment, pension, cpp, oas };
+      return { retired, employment, pensionContribution, pension, cpp, oas };
     }
 
     const inc1 = spouseIncome(s1, s1Age, "s1");

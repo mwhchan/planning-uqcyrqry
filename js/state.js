@@ -13,8 +13,10 @@ function defaultSpouse(name) {
     employmentIncomeToday: 150000,
     incomeGrowthRealPct: 0.0, // real growth above inflation, 0 = tracks inflation only
     hasDefinedBenefitPension: false,
-    pensionAnnualToday: 0,
+    pensionContributionToday: 0, // pre-tax payroll deduction while working (reduces taxable employment income)
+    pensionAnnualToday: 0, // payout once pensionStartAge is reached
     pensionStartAge: 65,
+    pensionIndexedPct: 1.0, // fraction of inflation the pension payout keeps pace with once it starts (1.0 = fully indexed)
     cppEstimateAt65Today: 12000,
     cppStartAge: 65,
     oasEstimateAt65Today: 8733,

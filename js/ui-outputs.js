@@ -26,6 +26,14 @@ function sliderConfig() {
   return cfg;
 }
 
+function paintRangeFill(input) {
+  const min = parseFloat(input.min), max = parseFloat(input.max), val = parseFloat(input.value);
+  const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+  const filled = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2a6fd6";
+  const track = getComputedStyle(document.documentElement).getPropertyValue("--track").trim() || "#dfe0e6";
+  input.style.background = `linear-gradient(to right, ${filled} 0%, ${filled} ${pct}%, ${track} ${pct}%, ${track} 100%)`;
+}
+
 function renderOutputSliders() {
   const container = document.getElementById("output-sliders");
   container.innerHTML = "";
@@ -47,11 +55,13 @@ function renderOutputSliders() {
       valSpan.textContent = c.pct ? raw.toFixed(1) + "%" : (c.id.includes("cashneed") ? fmt$(c.get()) : Math.round(c.get()));
     }
     refreshLabel();
+    paintRangeFill(input);
     input.addEventListener("input", () => {
       let v = parseFloat(input.value);
       if (c.pct) v = v / 100;
       c.set(v);
       refreshLabel();
+      paintRangeFill(input);
       scheduleRecalc();
     });
     c._el = input; c._refresh = refreshLabel;
@@ -64,6 +74,7 @@ function syncOutputSliders() {
     if (!el) return;
     const rawVal = c.pct ? +(c.get() * 100).toFixed(1) : c.get();
     if (document.activeElement !== el) el.value = rawVal;
+    paintRangeFill(el);
     const valSpan = document.getElementById(c.id + "-val");
     if (valSpan) valSpan.textContent = c.pct ? (c.get() * 100).toFixed(1) + "%" : (c.id.includes("cashneed") ? fmt$(c.get()) : Math.round(c.get()));
   });
@@ -124,5 +135,6 @@ function recomputeAndRender() {
   renderSummaryTiles(LAST_ROWS);
   renderAllCharts(LAST_ROWS);
   renderDetailTable(LAST_ROWS);
+  renderPensionPayoutSummary();
   syncOutputSliders();
 }

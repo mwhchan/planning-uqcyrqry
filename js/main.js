@@ -9,7 +9,7 @@
    and swapping PIN_HASH below.
    ========================================================================== */
 
-const PIN_HASH = "13b15ff5b941ca90e9bc41495c160cd29bda02991b4236d78268a40acd861955";
+const PIN_HASH = "6ecf763ff6e7cef7b47e6611e1bf76fe2608a2e32a97b2d88b083ae1d8d02c82";
 
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
